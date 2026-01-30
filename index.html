@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Point of View by Kora</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    // Lucide React icons as inline SVG components
+    const Sparkles = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+        <path d="M5 3v4"/>
+        <path d="M19 17v4"/>
+        <path d="M3 5h4"/>
+        <path d="M17 19h4"/>
+      </svg>
+    );
+
+    const ArrowRight = ({ size = 24 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+      </svg>
+    );
+
+    const ArrowLeft = ({ size = 24 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 19l-7-7 7-7"/><path d="M19 12H5"/>
+      </svg>
+    );
+
+    const RefreshCw = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>
+      </svg>
+    );
+
+    const Copy = ({ size = 24 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+      </svg>
+    );
+
+    const Check = ({ size = 24 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 6 9 17l-5-5"/>
+      </svg>
+    );
+
+    const GeradorConteudo = () => {
+      const [etapa, setEtapa] = useState(1);
+      const [respostas, setRespostas] = useState({
+        publicoAlvo: '',
+        frustracoes: '',
+        medos: '',
+        promessa: '',
+        formato: null,
+        ideiaCore: '',
+        tomVoz: null,
+        estiloComum: null,
+        formatoTexto: null
+      });
+      const [textos, setTextos] = useState([]);
+      const [carregando, setCarregando] = useState(false);
+      const [copiado, setCopiado] = useState(null);
+
+      const formatos = [
+        {
+          id: 1,
+          titulo: "Análise Crítica",
+          descricao: "Seu ponto de vista sobre notícia, tendência ou pesquisa",
+          icone: "🎯",
+          pergunta: "Qual notícia, tendência, pesquisa ou conteúdo você quer analisar criticamente?",
+          placeholder: "Ex: A ideia de que todo coach precisa ter 10k seguidores para vender"
+        },
+        {
+          id: 2,
+          titulo: "Conceito Simplificado",
+          descricao: "Explicação clara de algo complexo",
+          icone: "💡",
+          pergunta: "Qual conceito complexo da sua área você quer simplificar?",
+          placeholder: "Ex: O que realmente significa 'posicionamento de marca' além do discurso de marketing"
+        },
+        {
+          id: 3,
+          titulo: "Ferramenta Prática",
+          descricao: "Técnica aplicada para resolver um problema",
+          icone: "🛠️",
+          pergunta: "Qual ferramenta ou técnica prática você usa para resolver qual problema?",
+          placeholder: "Ex: Meu framework de 3 perguntas para criar conteúdo autêntico em 15 minutos"
+        },
+        {
+          id: 4,
+          titulo: "História Pessoal",
+          descricao: "Aprendizado, erro ou virada de chave",
+          icone: "📖",
+          pergunta: "Qual história pessoal (aprendizado, decisão, erro ou virada) você quer contar?",
+          placeholder: "Ex: O dia que percebi que copiar estratégias dos grandes me tornava invisível"
+        },
+        {
+          id: 5,
+          titulo: "Desconstrução de Mito",
+          descricao: "Quebre uma crença comum da sua área",
+          icone: "💥",
+          pergunta: "Qual mito ou crença limitante da sua área você quer desconstruir?",
+          placeholder: "Ex: A mentira de que você precisa postar todo dia para ter resultado"
+        },
+        {
+          id: 6,
+          titulo: "Comparação Estratégica",
+          descricao: "Dois caminhos possíveis lado a lado",
+          icone: "⚖️",
+          pergunta: "Quais dois caminhos, estratégias ou abordagens você quer comparar?",
+          placeholder: "Ex: Construir audiência vs. construir autoridade - qual vem primeiro?"
+        },
+        {
+          id: 7,
+          titulo: "Erro Confessado",
+          descricao: "Erro que você cometeu e o custo dele",
+          icone: "🎭",
+          pergunta: "Qual erro você cometeu e qual foi o custo real dele?",
+          placeholder: "Ex: Gastei R$30k em tráfego antes de entender que meu posicionamento estava confuso"
+        },
+        {
+          id: 8,
+          titulo: "Tradução de Conceito",
+          descricao: "Conceito de outra área aplicado à sua",
+          icone: "🔄",
+          pergunta: "Qual conceito de outra área você quer traduzir para a sua?",
+          placeholder: "Ex: O conceito de 'compounding' dos investimentos aplicado à criação de conteúdo"
+        },
+        {
+          id: 9,
+          titulo: "Opinião Contrária",
+          descricao: "Contra o senso comum, com argumentação",
+          icone: "🔥",
+          pergunta: "Qual opinião contrária ao senso comum do Instagram/LinkedIn você defende?",
+          placeholder: "Ex: Quanto menos você vender, mais você vai vender (e por que isso faz sentido)"
+        }
+      ];
+
+      const tonsVoz = [
+        { id: 'calmo', label: 'Calmo e Equilibrado', icone: '🧘', descricao: 'Transmite serenidade e confiança' },
+        { id: 'claro', label: 'Claro e Direto', icone: '🎯', descricao: 'Objetivo, sem rodeios' },
+        { id: 'polemico', label: 'Polêmico e Provocador', icone: '⚡', descricao: 'Desafia e questiona o status quo' },
+        { id: 'leve', label: 'Leve e Descontraído', icone: '😊', descricao: 'Acessível e amigável' },
+        { id: 'engracado', label: 'Engraçado e Irônico', icone: '😄', descricao: 'Usa humor inteligente' }
+      ];
+
+      const estilosComunicacao = [
+        { id: 'apresentador', label: 'Apresentador', icone: '🎤', descricao: 'Dinâmico, energético, conduz a conversa' },
+        { id: 'professor', label: 'Professor', icone: '👨‍🏫', descricao: 'Didático, educador, explica com clareza' },
+        { id: 'curador', label: 'Curador/Artista', icone: '🎨', descricao: 'Introspectivo, reflexivo, estético' },
+        { id: 'lider', label: 'Líder Inspirador', icone: '🚀', descricao: 'Motivador, visionário, move pessoas' }
+      ];
+
+      const gerarTextos = async () => {
+        setCarregando(true);
+        
+        const formatoSelecionado = formatos.find(f => f.id === respostas.formato);
+        const tomSelecionado = tonsVoz.find(t => t.id === respostas.tomVoz);
+        const estiloSelecionado = estilosComunicacao.find(e => e.id === respostas.estiloComum);
+        
+        const formatoTextoDesc = respostas.formatoTexto === 'fala' 
+          ? 'Tom de FALA - natural e fluido, mantendo inteligência e profundidade, mas sem ser acadêmico demais.'
+          : 'Tom de ESCRITA - estruturado e claro, mas acessível. Equilibre rigor com leveza.';
+        
+        const prompt = `Você é um especialista criando conteúdo inteligente e acessível para redes sociais profissionais.
+
+CONTEXTO DO PROFISSIONAL:
+- Público-alvo: ${respostas.publicoAlvo}
+- Frustrações do público: ${respostas.frustracoes}
+- Medos do público: ${respostas.medos}
+- Promessa/solução: ${respostas.promessa}
+
+FORMATO ESCOLHIDO: ${formatoSelecionado.titulo}
+
+IDEIA CENTRAL DO PROFISSIONAL:
+${respostas.ideiaCore}
+
+PERSONALIZAÇÃO:
+- Tom de voz: ${tomSelecionado.label} - ${tomSelecionado.descricao}
+- Estilo de comunicação: ${estiloSelecionado.label} - ${estiloSelecionado.descricao}
+- Formato do texto: ${formatoTextoDesc}
+
+INSTRUÇÕES:
+
+Crie 3 textos de até 1800 caracteres cada, equilibrando PROFUNDIDADE com ACESSIBILIDADE.
+
+CARACTERÍSTICAS ESSENCIAIS:
+- INTELIGENTE MAS ACESSÍVEL: Insights genuínos sem ser acadêmico demais
+- SEM DADOS INVENTADOS: NÃO cite estatísticas, estudos ou números específicos que você não tenha certeza absoluta. Foque em análise, raciocínio e argumentação
+- TOM AUTORIDADE LEVE: Mostre domínio do tema através de insights e perspectivas, não através de dados fabricados
+- SUBSTÂNCIA REAL: Cada frase deve agregar valor através de ideias, não de números falsos
+- EVITE: Jargão excessivo, linguagem de vendas, clichês de coaching, formalidade artificial, e PRINCIPALMENTE dados/estatísticas inventadas
+
+ESTRUTURA OBRIGATÓRIA (MARQUE CADA SEÇÃO):
+
+[GANCHO]
+Abertura que prende atenção - pode ser uma observação surpreendente, contradição interessante ou pergunta provocativa. NÃO use dados inventados (2-3 frases curtas).
+
+[SITUAÇÃO]
+Contextualize o problema ou tema. Mostre que isso é relevante e real através de observações e análise, NÃO através de estatísticas inventadas (3-4 frases).
+
+[CONSEQUÊNCIA]
+O que acontece quando isso não é endereçado? Qual o custo real - profissional, pessoal, prático? Use raciocínio lógico, não números falsos (3-4 frases).
+
+[OPINIÃO ÚNICA]
+Seu ponto de vista distintivo sobre o tema. Por que você pensa diferente? Qual sua abordagem? Baseie-se em lógica e experiência, não em dados fabricados (4-5 frases).
+
+[MUDANÇA DE PARADIGMA]
+Por que essa perspectiva muda o jogo para quem está lendo/ouvindo. O que se torna possível com esse novo olhar? (3-4 frases).
+
+[FECHAMENTO]
+Síntese da mensagem central. Deixe uma reflexão ou provocação final (2 frases).
+
+[FONTES RECOMENDADAS]
+Liste 3-4 SUGESTÕES de fontes confiáveis onde a pessoa pode pesquisar e se aprofundar no tema para adicionar dados reais ao conteúdo dela. Formato:
+- Nome do tipo de fonte (ex: "Relatórios da McKinsey sobre transformação digital")
+- Tipo de pesquisa sugerida (ex: "Estudos acadêmicos no Google Scholar sobre [tema]")
+- Organizações/institutos relevantes (ex: "Dados do IBGE sobre [tema]")
+- Livros/autores de referência no assunto
+
+NÃO invente estudos específicos. Apenas sugira ONDE a pessoa pode buscar informações reais.
+
+EQUILÍBRIO IMPORTANTE:
+- Seja inteligente sem precisar de dados para validar
+- Use argumentação lógica e insights originais
+- Mantenha conversacional mas com substância intelectual
+- Linguagem clara e direta
+- As 3 opções devem ter ABORDAGENS DIFERENTES da mesma ideia
+- NUNCA invente números, porcentagens ou nomes de estudos
+
+Separe cada texto completo com "---". Use as marcações [SEÇÃO] para estruturar.`;
+
+        try {
+          // Call the Vercel serverless function
+          const response = await fetch('/api/generate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ prompt })
+          });
+
+          if (!response.ok) {
+            throw new Error('Erro ao gerar conteúdo');
+          }
+
+          const data = await response.json();
+          
+          // Extract content from OpenAI response
+          const conteudo = data.choices[0].message.content;
+          
+          // Split into 3 texts
+          const textosGerados = conteudo.split('---').map(t => t.trim()).filter(t => t.length > 0);
+          
+          setTextos(textosGerados);
+          setEtapa(5);
+        } catch (error) {
+          console.error('Error:', error);
+          alert('Erro ao gerar textos. Verifique se a API está configurada corretamente no Vercel.');
+        }
+        
+        setCarregando(false);
+      };
+
+      const copiarTexto = (texto, index) => {
+        navigator.clipboard.writeText(texto);
+        setCopiado(index);
+        setTimeout(() => setCopiado(null), 2000);
+      };
+
+      const baixarPDF = async () => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 20;
+        const maxWidth = pageWidth - (margin * 2);
+        
+        doc.setFontSize(20);
+        doc.setFont(undefined, 'bold');
+        doc.text('Seus Conteudos Gerados', margin, margin);
+        
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        const dataAtual = new Date().toLocaleDateString('pt-BR');
+        doc.text(dataAtual, margin, margin + 7);
+        
+        let yPosition = margin + 20;
+        
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text('Contexto:', margin, yPosition);
+        yPosition += 7;
+        
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        
+        const contexto = [
+          `Publico: ${respostas.publicoAlvo}`,
+          `Formato: ${formatos.find(f => f.id === respostas.formato)?.titulo}`,
+          `Tom de voz: ${tonsVoz.find(t => t.id === respostas.tomVoz)?.label}`,
+          `Estilo: ${estilosComunicacao.find(e => e.id === respostas.estiloComum)?.label}`
+        ];
+        
+        contexto.forEach(linha => {
+          const linhasQuebradas = doc.splitTextToSize(linha, maxWidth);
+          linhasQuebradas.forEach(l => {
+            if (yPosition > pageHeight - margin) {
+              doc.addPage();
+              yPosition = margin;
+            }
+            doc.text(l, margin, yPosition);
+            yPosition += 5;
+          });
+        });
+        
+        yPosition += 5;
+        
+        textos.forEach((texto, index) => {
+          if (yPosition > pageHeight - 60) {
+            doc.addPage();
+            yPosition = margin;
+          }
+          
+          doc.setFontSize(12);
+          doc.setFont(undefined, 'bold');
+          doc.text(`Opcao ${index + 1}`, margin, yPosition);
+          yPosition += 7;
+          
+          doc.setFontSize(9);
+          doc.setFont(undefined, 'normal');
+          
+          const linhas = doc.splitTextToSize(texto, maxWidth);
+          linhas.forEach(linha => {
+            if (yPosition > pageHeight - margin) {
+              doc.addPage();
+              yPosition = margin;
+            }
+            doc.text(linha, margin, yPosition);
+            yPosition += 5;
+          });
+          
+          yPosition += 8;
+        });
+        
+        doc.save('conteudos-gerados.pdf');
+      };
+
+      const reiniciar = () => {
+        setEtapa(1);
+        setRespostas({
+          publicoAlvo: '',
+          frustracoes: '',
+          medos: '',
+          promessa: '',
+          formato: null,
+          ideiaCore: '',
+          tomVoz: null,
+          estiloComum: null,
+          formatoTexto: null
+        });
+        setTextos([]);
+      };
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 p-6">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-8">
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <Sparkles size={32} className="text-purple-600" />
+                <h1 className="text-3xl font-bold text-gray-800">Point of View by Kora</h1>
+              </div>
+              <p className="text-gray-600 max-w-2xl mx-auto">Organize sua visão profissional — valores, repertório e estilo de vida — em conteúdo autêntico e relevante.</p>
+            </div>
+
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-2">
+                {[1, 2, 3, 4, 5].map((num) => (
+                  <div key={num} className="flex items-center flex-1">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
+                      etapa >= num ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-500'
+                    }`}>
+                      {num}
+                    </div>
+                    {num < 5 && (
+                      <div className={`flex-1 h-1 mx-2 ${
+                        etapa > num ? 'bg-purple-600' : 'bg-gray-200'
+                      }`} />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between text-xs text-gray-600 px-1">
+                <span>Público</span>
+                <span>Dores</span>
+                <span>Formato</span>
+                <span>Sua Ideia</span>
+                <span>Textos</span>
+              </div>
+            </div>
+
+            {etapa === 1 && (
+              <div className="bg-white rounded-2xl shadow-lg p-8 animate-fade-in">
+                <h2 className="text-2xl font-bold text-gray-800 mb-6">Quem você atende?</h2>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Público-alvo (seja específico)
+                    </label>
+                    <textarea
+                      className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none resize-none"
+                      rows="3"
+                      placeholder="Ex: Coaches iniciantes que querem se posicionar no digital mas não sabem como criar conteúdo autêntico..."
+                      value={respostas.publicoAlvo}
+                      onChange={(e) => setRespostas({...respostas, publicoAlvo: e.target.value})}
+                    />
+                  </div>
+                  
+                  <button
+                    onClick={() => setEtapa(2)}
+                    disabled={!respostas.publicoAlvo.trim()}
+                    className="w-full bg-purple-600 text-white py-4 rounded-xl font-semibold hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
+                  >
+                    Próximo <ArrowRight size={20} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {etapa === 2 && (
+              <div className="bg-white rounded-2xl shadow-lg p-8 animate-fade-in">
+                <h2 className="text-2xl font-bold text-gray-800 mb-6">Dores do seu público</h2>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Frustrações (o que irrita, cansa, limita)
+                    </label>
+                    <textarea
+                      className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none resize-none"
+                      rows="3"
+                      placeholder="Ex: Criar conteúdo genérico, não ter engajamento, copiar fórmulas que não funcionam..."
+                      value={respostas.frustracoes}
+                      onChange={(e) => setRespostas({...respostas, frustracoes: e.target.value})}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Medos (o que eles temem)
+                    </label>
+                    <textarea
+                      className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none resize-none"
+                      rows="3"
+                      placeholder="Ex: Ser visto como mais um, perder tempo criando conteúdo que ninguém vê, nunca se destacar..."
+                      value={respostas.medos}
+                      onChange={(e) => setRespostas({...respostas, medos: e.target.value})}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Sua promessa/solução
+                    </label>
+                    <textarea
+                      className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none resize-none"
+                      rows="3"
+                      placeholder="Ex: Ensino profissionais a criar conteúdo autêntico que atrai clientes ideais sem precisar seguir fórmulas prontas..."
+                      value={respostas.promessa}
+                      onChange={(e) => setRespostas({...respostas, promessa: e.target.value})}
+                    />
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setEtapa(1)}
+                      className="flex-1 bg-gray-100 text-gray-700 py-4 rounded-xl font-semibold hover:bg-gray-200 flex items-center justify-center gap-2"
+                    >
+                      <ArrowLeft size={20} /> Voltar
+                    </button>
+                    <button
+                      onClick={() => setEtapa(3)}
+                      disabled={!respostas.frustracoes.trim() || !respostas.medos.trim() || !respostas.promessa.trim()}
+                      className="flex-1 bg-purple-600 text-white py-4 rounded-xl font-semibold hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      Próximo <ArrowRight size={20} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {etapa === 3 && (
+              <div className="bg-white rounded-2xl shadow-lg p-8 animate-fade-in">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">Escolha o tipo de conteúdo</h2>
+                <p className="text-gray-600 mb-6">
+                  Cada formato tem um propósito diferente. Escolha aquele que melhor se encaixa com a mensagem que você quer passar para o seu público. Pense: qual abordagem vai gerar mais conexão e autoridade?
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  {formatos.map((formato) => (
+                    <button
+                      key={formato.id}
+                      onClick={() => setRespostas({...respostas, formato: formato.id})}
+                      className={`p-4 rounded-xl border-2 text-left transition-all hover:scale-105 ${
+                        respostas.formato === formato.id
+                          ? 'border-purple-600 bg-purple-50'
+                          : 'border-gray-200 hover:border-purple-300'
+                      }`}
+                    >
+                      <div className="text-3xl mb-2">{formato.icone}</div>
+                      <div className="font-bold text-gray-800 mb-1">{formato.titulo}</div>
+                      <div className="text-sm text-gray-600">{formato.descricao}</div>
+                    </button>
+                  ))}
+                </div>
+                
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setEtapa(2)}
+                    className="flex-1 bg-gray-100 text-gray-700 py-4 rounded-xl font-semibold hover:bg-gray-200 flex items-center justify-center gap-2"
+                  >
+                    <ArrowLeft size={20} /> Voltar
+                  </button>
+                  <button
+                    onClick={() => setEtapa(4)}
+                    disabled={!respostas.formato}
+                    className="flex-1 bg-purple-600 text-white py-4 rounded-xl font-semibold hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    Próximo <ArrowRight size={20} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {etapa === 4 && (
+              <div className="bg-white rounded-2xl shadow-lg p-8 animate-fade-in">
+                <h2 className="text-2xl font-bold text-gray-800 mb-6">Personalize seu conteúdo</h2>
+                
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      {formatos.find(f => f.id === respostas.formato)?.pergunta}
+                    </label>
+                    <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-3 rounded">
+                      <p className="text-sm text-blue-900 font-semibold mb-1">💡 Seja o mais completo possível!</p>
+                      <p className="text-xs text-blue-800">
+                        Quanto mais detalhes, dados específicos e contexto pessoal você fornecer, melhor será o resultado. 
+                        Inclua números, situações reais, nomes de estratégias, exemplos concretos. Não economize nas informações!
+                      </p>
+                    </div>
+                    <textarea
+                      className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none resize-none"
+                      rows="4"
+                      placeholder={formatos.find(f => f.id === respostas.formato)?.placeholder}
+                      value={respostas.ideiaCore}
+                      onChange={(e) => setRespostas({...respostas, ideiaCore: e.target.value})}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      Qual o seu tom de voz?
+                    </label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {tonsVoz.map((tom) => (
+                        <button
+                          key={tom.id}
+                          onClick={() => setRespostas({...respostas, tomVoz: tom.id})}
+                          className={`p-4 rounded-xl border-2 text-left transition-all hover:scale-105 ${
+                            respostas.tomVoz === tom.id
+                              ? 'border-purple-600 bg-purple-50'
+                              : 'border-gray-200 hover:border-purple-300'
+                          }`}
+                        >
+                          <div className="text-2xl mb-1">{tom.icone}</div>
+                          <div className="font-bold text-sm text-gray-800">{tom.label}</div>
+                          <div className="text-xs text-gray-600 mt-1">{tom.descricao}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      Como você gosta de se comunicar?
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {estilosComunicacao.map((estilo) => (
+                        <button
+                          key={estilo.id}
+                          onClick={() => setRespostas({...respostas, estiloComum: estilo.id})}
+                          className={`p-4 rounded-xl border-2 text-left transition-all hover:scale-105 ${
+                            respostas.estiloComum === estilo.id
+                              ? 'border-purple-600 bg-purple-50'
+                              : 'border-gray-200 hover:border-purple-300'
+                          }`}
+                        >
+                          <div className="text-2xl mb-1">{estilo.icone}</div>
+                          <div className="font-bold text-sm text-gray-800">{estilo.label}</div>
+                          <div className="text-xs text-gray-600 mt-1">{estilo.descricao}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      O texto é para falar (narração) ou para escrever (legenda/post)?
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => setRespostas({...respostas, formatoTexto: 'fala'})}
+                        className={`p-4 rounded-xl border-2 text-left transition-all hover:scale-105 ${
+                          respostas.formatoTexto === 'fala'
+                            ? 'border-purple-600 bg-purple-50'
+                            : 'border-gray-200 hover:border-purple-300'
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">🎤</div>
+                        <div className="font-bold text-sm text-gray-800">Tom de Fala</div>
+                        <div className="text-xs text-gray-600 mt-1">Mais coloquial, como você falaria em um vídeo</div>
+                      </button>
+                      <button
+                        onClick={() => setRespostas({...respostas, formatoTexto: 'escrita'})}
+                        className={`p-4 rounded-xl border-2 text-left transition-all hover:scale-105 ${
+                          respostas.formatoTexto === 'escrita'
+                            ? 'border-purple-600 bg-purple-50'
+                            : 'border-gray-200 hover:border-purple-300'
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">✍️</div>
+                        <div className="font-bold text-sm text-gray-800">Tom de Escrita</div>
+                        <div className="text-xs text-gray-600 mt-1">Mais estruturado, para posts e legendas</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setEtapa(3)}
+                      className="flex-1 bg-gray-100 text-gray-700 py-4 rounded-xl font-semibold hover:bg-gray-200 flex items-center justify-center gap-2"
+                    >
+                      <ArrowLeft size={20} /> Voltar
+                    </button>
+                    <button
+                      onClick={gerarTextos}
+                      disabled={!respostas.ideiaCore.trim() || !respostas.tomVoz || !respostas.estiloComum || !respostas.formatoTexto || carregando}
+                      className="flex-1 bg-purple-600 text-white py-4 rounded-xl font-semibold hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {carregando ? (
+                        <>
+                          <RefreshCw size={20} className="animate-spin" /> Gerando...
+                        </>
+                      ) : (
+                        <>
+                          Gerar Textos <Sparkles size={20} />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {etapa === 5 && (
+              <div className="space-y-6 animate-fade-in">
+                <div className="bg-white rounded-xl shadow-lg p-4">
+                  <p className="text-sm text-gray-600 mb-3">Quer ajustar algo? Volte para qualquer etapa:</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => setEtapa(1)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold text-gray-700 transition-all">
+                      1. Público
+                    </button>
+                    <button onClick={() => setEtapa(2)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold text-gray-700 transition-all">
+                      2. Dores
+                    </button>
+                    <button onClick={() => setEtapa(3)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold text-gray-700 transition-all">
+                      3. Formato
+                    </button>
+                    <button onClick={() => setEtapa(4)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold text-gray-700 transition-all">
+                      4. Personalização
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-lg p-8">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">Seus textos estão prontos! 🎉</h2>
+                  <p className="text-gray-600 mb-6">Escolha o que mais combina com você</p>
+                  
+                  {textos.map((texto, index) => {
+                    const formatarTexto = (texto) => {
+                      const secoes = [
+                        { tag: '[GANCHO]', nome: 'GANCHO', cor: 'bg-red-100 text-red-800' },
+                        { tag: '[SITUAÇÃO]', nome: 'SITUAÇÃO', cor: 'bg-blue-100 text-blue-800' },
+                        { tag: '[CONSEQUÊNCIA]', nome: 'CONSEQUÊNCIA', cor: 'bg-orange-100 text-orange-800' },
+                        { tag: '[OPINIÃO ÚNICA]', nome: 'OPINIÃO ÚNICA', cor: 'bg-purple-100 text-purple-800' },
+                        { tag: '[MUDANÇA DE PARADIGMA]', nome: 'MUDANÇA DE PARADIGMA', cor: 'bg-green-100 text-green-800' },
+                        { tag: '[FECHAMENTO]', nome: 'FECHAMENTO', cor: 'bg-indigo-100 text-indigo-800' },
+                        { tag: '[FONTES RECOMENDADAS]', nome: 'FONTES RECOMENDADAS', cor: 'bg-yellow-100 text-yellow-800' },
+                        { tag: '[FONTES]', nome: 'FONTES', cor: 'bg-gray-100 text-gray-800' }
+                      ];
+                      
+                      let partes = [];
+                      let textoRestante = texto;
+                      
+                      secoes.forEach((secao, idx) => {
+                        const inicioSecao = textoRestante.indexOf(secao.tag);
+                        if (inicioSecao === -1) return;
+                        
+                        const proximaSecao = secoes.slice(idx + 1).find(s => textoRestante.indexOf(s.tag) > inicioSecao);
+                        const fimSecao = proximaSecao ? textoRestante.indexOf(proximaSecao.tag) : textoRestante.length;
+                        
+                        const conteudo = textoRestante.substring(inicioSecao + secao.tag.length, fimSecao).trim();
+                        
+                        partes.push({
+                          nome: secao.nome,
+                          cor: secao.cor,
+                          conteudo: conteudo
+                        });
+                      });
+                      
+                      return partes.length > 0 ? partes : null;
+                    };
+
+                    const secoesParsed = formatarTexto(texto);
+                    
+                    return (
+                      <div key={index} className="mb-6 p-6 bg-gray-50 rounded-xl border-2 border-gray-200 hover:border-purple-300 transition-all">
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="font-bold text-purple-600 text-lg">Opção {index + 1}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">{texto.length} caracteres</span>
+                            <button
+                              onClick={() => copiarTexto(texto, index)}
+                              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2 text-sm font-semibold"
+                            >
+                              {copiado === index ? (
+                                <>
+                                  <Check size={16} /> Copiado!
+                                </>
+                              ) : (
+                                <>
+                                  <Copy size={16} /> Copiar texto completo
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {secoesParsed ? (
+                          <div className="space-y-4">
+                            <div className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded mb-4">
+                              <p className="text-xs text-blue-900 font-semibold">
+                                💡 Estrutura editável: Você pode identificar e modificar cada seção abaixo conforme necessário para personalizar ainda mais seu conteúdo.
+                              </p>
+                            </div>
+                            {secoesParsed.map((secao, idx) => (
+                              <div key={idx} className="border-l-4 border-gray-300 pl-4">
+                                <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold mb-2 ${secao.cor}`}>
+                                  {secao.nome}
+                                </div>
+                                <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">{secao.conteudo}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-gray-800 whitespace-pre-wrap leading-relaxed">{texto}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                  
+                  <button
+                    onClick={reiniciar}
+                    className="w-full bg-gray-100 text-gray-700 py-4 rounded-xl font-semibold hover:bg-gray-200 flex items-center justify-center gap-2"
+                  >
+                    <RefreshCw size={20} /> Criar novo conteúdo
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <style>{`
+            @keyframes fade-in {
+              from {
+                opacity: 0;
+                transform: translateY(10px);
+              }
+              to {
+                opacity: 1;
+                transform: translateY(0);
+              }
+            }
+            .animate-fade-in {
+              animation: fade-in 0.3s ease-out;
+            }
+            .animate-spin {
+              animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+              from {
+                transform: rotate(0deg);
+              }
+              to {
+                transform: rotate(360deg);
+              }
+            }
+          `}</style>
+        </div>
+      );
+    };
+
+    ReactDOM.render(<GeradorConteudo />, document.getElementById('root'));
+  </script>
+</body>
+</html>
